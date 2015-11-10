@@ -7,7 +7,6 @@ import org.junit.runners.parameterized.BlockJUnit4ClassRunnerWithParametersFacto
 import java.util.List;
 
 @Parameterized.UseParametersRunnerFactory(BlockJUnit4ClassRunnerWithParametersFactory.class)
-@FileSuite.ParameterizedTestClass
 public class InnerParameterizedTest {
 
     //@Parameterized.Parameter(value = 0)

@@ -1,19 +1,23 @@
 package net.sf.hajuergens;
 
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.ss.usermodel.*;
 import org.junit.runner.Runner;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Suite;
 import org.junit.runners.model.FrameworkMethod;
-import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.TestClass;
 import org.junit.runners.parameterized.BlockJUnit4ClassRunnerWithParametersFactory;
 import org.junit.runners.parameterized.ParametersRunnerFactory;
 import org.junit.runners.parameterized.TestWithParameters;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.annotation.*;
 import java.text.MessageFormat;
 import java.util.*;
+
+import static java.text.MessageFormat.format;
 
 public class FileSuite extends Suite {
     private static final ParametersRunnerFactory DEFAULT_FACTORY = new BlockJUnit4ClassRunnerWithParametersFactory();
@@ -22,21 +26,54 @@ public class FileSuite extends Suite {
     private final List<Runner> runners;
     private final List<Object> params;
 
-    public FileSuite(TestWithParameters test) throws Throwable {
-        super(InnerParameterizedTest.class, NO_RUNNERS);
+    /**
+     * @param klass InnerParameterizedTest.class
+     * @param test  a test with parameters containing a file
+     * @throws Throwable
+     */
+    public FileSuite(Class<?> klass, TestWithParameters test) throws Throwable {
+        super(klass, NO_RUNNERS);
 
         Parameterized.Parameters parameters = this.getParametersMethod().getAnnotation(Parameterized.Parameters.class);
 
         params = test.getParameters();
 
         File file = new File(params.get(0).toString());
-        if (!file.exists()) throw new RuntimeException("The file " + file + " does not exists.");
+        if (!file.exists()) throw new RuntimeException(format("A file {0} does not exists in test parameters.", file));
 
-        List<Object> primaryKeyList = CustomParameterizedSuite.getPrimaryKeyList(file);
+        List<Object> primaryKeyList = getPrimaryKeyList(file);
 
-        ParametersRunnerFactory runnerFactory = getParametersRunnerFactory(InnerParameterizedTest.class);
+        ParametersRunnerFactory runnerFactory = getParametersRunnerFactory(klass);
 
         this.runners = Collections.unmodifiableList(this.createRunnersForParameters(primaryKeyList, parameters.name(), runnerFactory));
+    }
+
+    private static <T> List<T> copyIterator(Iterator<T> iter) {
+        List<T> copy = new ArrayList<T>();
+        while (iter.hasNext())
+            copy.add(iter.next());
+        return copy;
+    }
+
+    static List<Object> getPrimaryKeyList(File file) throws IOException, InvalidFormatException {
+        List<Object> primaryKeyList = new LinkedList<>();
+
+        Workbook wb = WorkbookFactory.create(file);
+        Sheet sheet = wb.getSheet("Tabelle1");
+
+        if (sheet == null) {
+            String msg = MessageFormat.format("No sheet \"{0}\" in workbook {1}.", "Tabelle1", file);
+            throw new RuntimeException(msg);
+        }
+        for (int rownum = sheet.getFirstRowNum() + 1; rownum < sheet.getLastRowNum() + 1; rownum++) {
+            Row row = sheet.getRow(rownum);
+            Cell cell = row.getCell(0, Row.CREATE_NULL_AS_BLANK);
+            if (cell.getStringCellValue().isEmpty()) continue;
+            String id = cell.getStringCellValue();
+
+            primaryKeyList.add(new Object[]{id, copyIterator(row.iterator())});
+        }
+        return primaryKeyList;
     }
 
     public static String removeExtension(String filename) {
@@ -61,8 +98,7 @@ public class FileSuite extends Suite {
         File file = new File(params.get(0).toString());
         String fName = removeExtension(file.getName());
         String className = getTestClass().getName().substring(getTestClass().getName().lastIndexOf(".") + 1);
-        String name = MessageFormat.format("{0}->\"{1}\"", className, fName);
-        return name;
+        return MessageFormat.format("{0}->\"{1}\"", className, fName);
     }
 
     private ParametersRunnerFactory getParametersRunnerFactory(Class<?> klass) throws InstantiationException, IllegalAccessException {
@@ -75,10 +111,10 @@ public class FileSuite extends Suite {
         }
     }
 
-    private List<Runner> createRunnersForParameters(Iterable<Object> allParameters, String namePattern, ParametersRunnerFactory runnerFactory) throws InitializationError, Exception {
+    private List<Runner> createRunnersForParameters(Iterable<Object> allParameters, String namePattern, ParametersRunnerFactory runnerFactory) throws Exception {
         try {
             List list = this.createTestsForParameters(allParameters, namePattern);
-            ArrayList runners = new ArrayList();
+            ArrayList<Runner> runners = new ArrayList<>();
 
             for (Object anE : list) {
                 TestWithParameters test = (TestWithParameters) anE;
@@ -121,25 +157,13 @@ public class FileSuite extends Suite {
 
     private List<TestWithParameters> createTestsForParameters(Iterable<Object> allParameters, String namePattern) throws Exception {
         int i = 0;
-        ArrayList children = new ArrayList();
-        Iterator it = allParameters.iterator();
+        ArrayList<TestWithParameters> children = new ArrayList<>();
 
-        while (it.hasNext()) {
-            Object parametersOfSingleTest = it.next();
+        for (Object parametersOfSingleTest : allParameters) {
             children.add(this.createTestWithNotNormalizedParameters(namePattern, i++, parametersOfSingleTest));
         }
 
         return children;
-    }
-
-    private ParametersRunnerFactory getParameterizedTestClass(Class<?> klass) throws InstantiationException, IllegalAccessException {
-        ParameterizedTestClass annotation = (ParameterizedTestClass) klass.getAnnotation(ParameterizedTestClass.class);
-        if (annotation == null) {
-            return DEFAULT_FACTORY;
-        } else {
-            Class factoryClass = annotation.value();
-            return (ParametersRunnerFactory) factoryClass.newInstance();
-        }
     }
 
     @Override
@@ -147,11 +171,18 @@ public class FileSuite extends Suite {
         return runners;
     }
 
+    /**
+     * The <code>SuiteClass</code> annotation specifies the classes to be run when a class
+     * annotated with <code>@RunWith(Suite.class)</code> is run.
+     */
     @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
     @Inherited
-    @Target({ElementType.TYPE})
-    public @interface ParameterizedTestClass {
-        Class<?> value() default InnerParameterizedTest.class;
+    public @interface SuiteClass {
+        /**
+         * @return the classes to be run
+         */
+        Class<?> value();
     }
 
 }

@@ -1,13 +1,8 @@
 package net.sf.hajuergens;
 
-import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
-import org.apache.poi.ss.usermodel.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.model.InitializationError;
-import org.junit.runners.parameterized.ParametersRunnerFactory;
-import org.junit.runners.parameterized.TestWithParameters;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,14 +10,15 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.MessageFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 @RunWith(Parameterized.class)
-@Parameterized.UseParametersRunnerFactory(CustomParameterizedSuite.RunnerFactory.class)
+@Parameterized.UseParametersRunnerFactory(FileSuiteFactory.class)
+@FileSuite.SuiteClass(value = InnerParameterizedTest.class)
 public class CustomParameterizedSuite {
 
     static Pattern p = Pattern.compile("^[^~].*[.]xls[xm]?$");
@@ -30,8 +26,9 @@ public class CustomParameterizedSuite {
     static private Predicate<Path> notDirectory = (Path entry) -> !entry.toFile().isDirectory();
     @Parameterized.Parameter
     public File file;
-    public CustomParameterizedSuite(File i) {
-        this.file = i;
+
+    public CustomParameterizedSuite(File file) {
+        this.file = file;
     }
 
     /**
@@ -57,48 +54,9 @@ public class CustomParameterizedSuite {
         return readAllFilesRecursively("target/classes");
     }
 
-    public static <T> List<T> copyIterator(Iterator<T> iter) {
-        List<T> copy = new ArrayList<T>();
-        while (iter.hasNext())
-            copy.add(iter.next());
-        return copy;
-    }
-    static List<Object> getPrimaryKeyList(File file) throws IOException, InvalidFormatException {
-        List<Object> primaryKeyList = new LinkedList<>();
-
-        Workbook wb = WorkbookFactory.create(file);
-        Sheet sheet = wb.getSheet("Tabelle1");
-
-        if (sheet == null) {
-            String msg = MessageFormat.format("No sheet \"{0}\" in workbook {1}.", "Tabelle1", file);
-            throw new RuntimeException(msg);
-        }
-        for (int rownum = sheet.getFirstRowNum() + 1; rownum < sheet.getLastRowNum()+1; rownum++) {
-            Row row = sheet.getRow(rownum);
-            Cell cell = row.getCell(0, Row.CREATE_NULL_AS_BLANK);
-            if (cell.getStringCellValue().isEmpty()) continue;
-            String id = cell.getStringCellValue();
-
-            primaryKeyList.add(new Object[]{id, copyIterator(row.iterator())});
-        }
-        return primaryKeyList;
-    }
-
     @Test
     public void test() {
         System.out.println(file);
-    }
-
-    public static class RunnerFactory implements ParametersRunnerFactory {
-        @Override
-        public org.junit.runner.Runner createRunnerForTestWithParameters(TestWithParameters test) throws InitializationError {
-            try {
-                return new FileSuite(test);
-            } catch (Throwable throwable) {
-                throwable.printStackTrace();
-                throw new InitializationError(throwable);
-            }
-        }
     }
 
 }
