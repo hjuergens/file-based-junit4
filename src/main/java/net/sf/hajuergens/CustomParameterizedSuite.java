@@ -21,11 +21,12 @@ import java.util.stream.Stream;
 @FileSuite.SuiteClass(value = InnerParameterizedTest.class)
 public class CustomParameterizedSuite {
 
-    static Pattern p = Pattern.compile("^[^~].*[.]xls[xm]?$");
-    static private Predicate<Path> matchNameSchema = (Path entry) -> p.matcher(entry.toString()).matches();
-    static private Predicate<Path> notDirectory = (Path entry) -> !entry.toFile().isDirectory();
-    @Parameterized.Parameter
-    public File file;
+    static private final Pattern p = Pattern.compile("^[^~].*[.]xls[xm]?$");
+    static private final Predicate<Path> matchNameSchema =
+        (Path entry) -> p.matcher(entry.toString()).matches();
+    static private final Predicate<Path> notDirectory =
+        (Path entry) -> !entry.toFile().isDirectory();
+    @Parameterized.Parameter private final File file;
 
     public CustomParameterizedSuite(File file) {
         this.file = file;
@@ -37,13 +38,12 @@ public class CustomParameterizedSuite {
      * @param path the path to start recursion
      * @return list of lines
      */
-    private static List<File> readAllFilesRecursively(final String path) {
-        final List<File> lines = new ArrayList<>();
+    private static Iterable<File> readAllFilesRecursively(String path) {
+        List<File> lines = new ArrayList<>();
         try (final Stream<Path> pathStream = Files.walk(Paths.get(path), FileVisitOption.FOLLOW_LINKS)) {
-            pathStream
-                    .filter((p) -> notDirectory.test(p))
-                    .filter((p) -> matchNameSchema.test(p)).forEach(p -> lines.add(p.toFile()));
-        } catch (final IOException e) {
+            pathStream.filter(notDirectory::test).filter(matchNameSchema::test)
+                .forEach(p -> lines.add(p.toFile()));
+        } catch (IOException e) {
             e.printStackTrace();
         }
         return lines;

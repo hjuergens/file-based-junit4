@@ -4,6 +4,7 @@ import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.*;
 import org.junit.runner.Runner;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.UseParametersRunnerFactory;
 import org.junit.runners.Suite;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.TestClass;
@@ -14,12 +15,13 @@ import org.junit.runners.parameterized.TestWithParameters;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.*;
+import java.lang.reflect.AnnotatedElement;
 import java.text.MessageFormat;
 import java.util.*;
 
 import static java.text.MessageFormat.format;
 
-public class FileSuite extends Suite {
+class FileSuite extends Suite {
     private static final ParametersRunnerFactory DEFAULT_FACTORY = new BlockJUnit4ClassRunnerWithParametersFactory();
     private static final List<Runner> NO_RUNNERS = Collections.emptyList();
 
@@ -38,24 +40,26 @@ public class FileSuite extends Suite {
 
         params = test.getParameters();
 
-        File file = new File(params.get(0).toString());
+        final File file = new File(params.get(0).toString());
         if (!file.exists()) throw new RuntimeException(format("A file {0} does not exists in test parameters.", file));
 
         List<Object> primaryKeyList = getPrimaryKeyList(file);
 
         ParametersRunnerFactory runnerFactory = getParametersRunnerFactory(klass);
 
-        this.runners = Collections.unmodifiableList(this.createRunnersForParameters(primaryKeyList, parameters.name(), runnerFactory));
+        runners = Collections.unmodifiableList(
+            createRunnersForParameters(primaryKeyList, parameters.name(), runnerFactory));
     }
 
     private static <T> List<T> copyIterator(Iterator<T> iter) {
-        List<T> copy = new ArrayList<T>();
+        List<T> copy = new ArrayList<>();
         while (iter.hasNext())
             copy.add(iter.next());
         return copy;
     }
 
-    static List<Object> getPrimaryKeyList(File file) throws IOException, InvalidFormatException {
+    private static List<Object> getPrimaryKeyList(File file)
+        throws IOException, InvalidFormatException {
         List<Object> primaryKeyList = new LinkedList<>();
 
         Workbook wb = WorkbookFactory.create(file);
@@ -76,7 +80,7 @@ public class FileSuite extends Suite {
         return primaryKeyList;
     }
 
-    public static String removeExtension(String filename) {
+    private static String removeExtension(String filename) {
         if (filename == null) {
             return null;
         }
@@ -101,8 +105,10 @@ public class FileSuite extends Suite {
         return MessageFormat.format("{0}->\"{1}\"", className, fName);
     }
 
-    private ParametersRunnerFactory getParametersRunnerFactory(Class<?> klass) throws InstantiationException, IllegalAccessException {
-        Parameterized.UseParametersRunnerFactory annotation = klass.getAnnotation(Parameterized.UseParametersRunnerFactory.class);
+    private ParametersRunnerFactory getParametersRunnerFactory(AnnotatedElement klass)
+        throws InstantiationException, IllegalAccessException {
+        UseParametersRunnerFactory annotation =
+            klass.getAnnotation(UseParametersRunnerFactory.class);
         if (annotation == null) {
             return DEFAULT_FACTORY;
         } else {
@@ -114,7 +120,7 @@ public class FileSuite extends Suite {
     private List<Runner> createRunnersForParameters(Iterable<Object> allParameters, String namePattern, ParametersRunnerFactory runnerFactory) throws Exception {
         try {
             List list = this.createTestsForParameters(allParameters, namePattern);
-            ArrayList<Runner> runners = new ArrayList<>();
+            List<Runner> runners = new ArrayList<>();
 
             for (Object anE : list) {
                 TestWithParameters test = (TestWithParameters) anE;
@@ -155,9 +161,10 @@ public class FileSuite extends Suite {
         return new Exception(message);
     }
 
-    private List<TestWithParameters> createTestsForParameters(Iterable<Object> allParameters, String namePattern) throws Exception {
+    private List<TestWithParameters> createTestsForParameters(Iterable<Object> allParameters,
+        String namePattern) {
         int i = 0;
-        ArrayList<TestWithParameters> children = new ArrayList<>();
+        List<TestWithParameters> children = new ArrayList<>();
 
         for (Object parametersOfSingleTest : allParameters) {
             children.add(this.createTestWithNotNormalizedParameters(namePattern, i++, parametersOfSingleTest));

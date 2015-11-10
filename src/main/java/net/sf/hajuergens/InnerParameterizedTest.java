@@ -10,8 +10,8 @@ import java.util.List;
 public class InnerParameterizedTest {
 
     //@Parameterized.Parameter(value = 0)
-    public String param;
-    private List rowEntries;
+    private final String param;
+    private final List rowEntries;
 
     public InnerParameterizedTest(String str, List rowEntries) {
         this.param = str;

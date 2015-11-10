@@ -1,5 +1,6 @@
 package net.sf.hajuergens;
 
+import net.sf.hajuergens.FileSuite.SuiteClass;
 import org.junit.runner.Runner;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.parameterized.ParametersRunnerFactory;
@@ -12,7 +13,7 @@ import java.io.File;
  */
 public class FileSuiteFactory implements ParametersRunnerFactory {
     private static Class<?> getAnnotatedClass(Class<?> klass) throws InitializationError {
-        FileSuite.SuiteClass annotation = klass.getAnnotation(FileSuite.SuiteClass.class);
+        SuiteClass annotation = klass.getAnnotation(SuiteClass.class);
         if (annotation == null) {
             throw new InitializationError(String.format("class '%s' must have a SuiteClass annotation", klass.getName()));
         }
