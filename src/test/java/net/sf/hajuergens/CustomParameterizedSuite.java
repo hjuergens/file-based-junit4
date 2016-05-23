@@ -41,7 +41,7 @@ public class CustomParameterizedSuite {
     private static Iterable<File> readAllFilesRecursively(String path) {
         List<File> lines = new ArrayList<>();
         try (final Stream<Path> pathStream = Files.walk(Paths.get(path), FileVisitOption.FOLLOW_LINKS)) {
-            pathStream.filter(notDirectory::test).filter(matchNameSchema::test)
+            pathStream.filter(notDirectory).filter(matchNameSchema)
                 .forEach(p -> lines.add(p.toFile()));
         } catch (IOException e) {
             e.printStackTrace();
@@ -51,7 +51,7 @@ public class CustomParameterizedSuite {
 
     @Parameterized.Parameters(name = "{index}: file={0}), type={1}")
     public static Iterable<File> data() {
-        return readAllFilesRecursively("target/classes");
+        return readAllFilesRecursively("target/test-classes");
     }
 
     @Test
